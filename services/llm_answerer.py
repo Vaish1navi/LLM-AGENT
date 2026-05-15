@@ -2,10 +2,10 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 load_dotenv()
-try:
-    GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
-except KeyError:
-    raise Exception("FATAL ERROR: GOOGLE_API_KEY environment variable not found.")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    GOOGLE_API_KEY = None
+
 genai.configure(api_key=GOOGLE_API_KEY)
 generation_config = {
   "temperature": 0.1,

@@ -3,10 +3,12 @@ import chromadb
 from dotenv import load_dotenv
 import google.generativeai as genai
 load_dotenv()
-try:
-    GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
-except KeyError:
-    raise Exception("FATAL ERROR: GOOGLE_API_KEY environment variable not found.")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    # Allow the server to start even if embeddings are not usable yet.
+    # Actual indexing/querying will fail with a clear error when called.
+    GOOGLE_API_KEY = None
+
 genai.configure(api_key=GOOGLE_API_KEY)
 EMBEDDING_MODEL_NAME = "models/embedding-001"
 client = chromadb.PersistentClient(path="./chroma_db")

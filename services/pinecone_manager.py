@@ -11,8 +11,23 @@ if not GOOGLE_API_KEY:
 
 genai.configure(api_key=GOOGLE_API_KEY)
 EMBEDDING_MODEL_NAME = "models/embedding-001"
-client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_or_create_collection(name="hackrx_local_google_v1")
+
+# Vercel mounts `/var/task` as read-only. Chroma needs a writable directory.
+# Use an env override if provided; otherwise fall back to /tmp.
+CHROMA_PATH = os.environ.get("CHROMA_PATH") or os.environ.get("TMPDIR") or "/tmp/chroma_db"
+
+_client = None
+_collection = None
+
+def _get_collection():
+    global _client, _collection
+    if _collection is not None:
+        return _collection
+    # Lazy-init so app startup won’t fail if embeddings are not usable yet.
+    _client = chromadb.PersistentClient(path=CHROMA_PATH)
+    _collection = _client.get_or_create_collection(name="hackrx_local_google_v1")
+    return _collection
+
 def get_embeddings(texts: list[str], task_type="retrieval_document") -> list[list[float]]:
     if not texts or not all(isinstance(t, str) and t for t in texts):
         return []
@@ -27,8 +42,10 @@ def get_embeddings(texts: list[str], task_type="retrieval_document") -> list[lis
         print(f"An error occurred during Google embedding: {e}")
         return [[] for _ in texts]
 def index_chunks(chunks: list[str], namespace: str):
+    collection = _get_collection()
     print(f"[LOCAL DB] Indexing {len(chunks)} chunks using Google embeddings...")
     embeddings = get_embeddings(chunks)
+
     if not any(embeddings):
         print("[LOCAL DB] ERROR: Could not generate any embeddings. Skipping indexing.")
         return
@@ -40,8 +57,10 @@ def index_chunks(chunks: list[str], namespace: str):
     )
     print("[LOCAL DB] Indexing complete.")
 def query_chunks(query: str, namespace: str, top_k: int = 3) -> list:
+    collection = _get_collection()
     print(f"[LOCAL DB] Querying for: '{query[:40]}...' using Google embeddings.")
     query_embedding = get_embeddings([query], task_type="retrieval_query")
+
     if not query_embedding:
         return []
     results = collection.query(

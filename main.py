@@ -7,3 +7,6 @@ app = FastAPI(
 )
 
 app.include_router(hackrx.router, prefix="/api/v1")
+@app.get("/")
+def home():
+    return {"message": "LLM Agent Running Successfully"}
